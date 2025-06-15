@@ -31,13 +31,13 @@ class OAuthRepo(object):
         """
         return OAuthServices.objects.filter(eid=eid, is_deleted=False, system=is_system)
 
-    def get_oauth_services_by_service_id(self, user_id, service_id=None):
+    def get_oauth_services_by_service_id(self, service_id=None):
         if not service_id:
             pre_enterprise_center = os.getenv("PRE_ENTERPRISE_CENTER", None)
             if pre_enterprise_center:
-                return OAuthServices.objects.get(user_id=user_id, name=pre_enterprise_center, oauth_type="enterprisecenter")
-            return OAuthServices.objects.filter(user_id=user_id, oauth_type="enterprisecenter", enable=True, is_deleted=False).first()
-        return OAuthServices.objects.get(ID=service_id, enable=True, is_deleted=False, user_id=user_id)
+                return OAuthServices.objects.get(name=pre_enterprise_center, oauth_type="enterprisecenter")
+            return OAuthServices.objects.filter(oauth_type="enterprisecenter", enable=True, is_deleted=False).first()
+        return OAuthServices.objects.get(ID=service_id, enable=True, is_deleted=False)
 
     @staticmethod
     def get_by_client_id(client_id, user_id):
@@ -46,8 +46,8 @@ class OAuthRepo(object):
         except OAuthServices.DoesNotExist:
             raise ErrOauthServiceNotFound
 
-    def open_get_oauth_services_by_service_id(self, service_id, user_id):
-        return OAuthServices.objects.filter(ID=service_id, is_deleted=False, user_id=user_id).first()
+    def open_get_oauth_services_by_service_id(self, service_id):
+        return OAuthServices.objects.filter(ID=service_id, is_deleted=False).first()
 
     @staticmethod
     def get_by_name(name, user_id):
@@ -92,12 +92,12 @@ class OAuthRepo(object):
                 )
             else:
                 if value.get("is_deleted"):
-                    self.delete_oauth_service(service_id=value.get("service_id"), user_id=user_id)
+                    self.delete_oauth_service(service_id=value.get("service_id"))
                 else:
-                    old_service = self.open_get_oauth_services_by_service_id(service_id=value.get("service_id"), user_id=user_id)
+                    old_service = self.open_get_oauth_services_by_service_id(service_id=value.get("service_id"))
                     if old_service.home_url != value["home_url"]:
                         UserOAuthServices.objects.filter(service_id=value.get("service_id")).delete()
-                    OAuthServices.objects.filter(ID=value["service_id"], user_id=user_id).update(
+                    OAuthServices.objects.filter(ID=value["service_id"]).update(
                         name=value["name"],
                         eid=value["eid"],
                         redirect_uri=value["redirect_uri"],
@@ -272,7 +272,9 @@ class UserOAuthRepo(object):
 
     def get_user_oauth_services_info(self, eid, user_id):
         oauth_services = []
-        services = OAuthServices.objects.filter(eid=eid, is_deleted=False, enable=True, user_id=user_id)
+        system_services = OAuthServices.objects.filter(eid=eid, is_deleted=False, enable=True, system=True)
+        user_services = OAuthServices.objects.filter(eid=eid, is_deleted=False, enable=True, user_id=user_id)
+        services = system_services.union(user_services)
         for service in services:
             user_service = self.get_user_oauth_by_user_id(service_id=service.ID, user_id=user_id)
             api = get_oauth_instance(service.oauth_type, service, None)

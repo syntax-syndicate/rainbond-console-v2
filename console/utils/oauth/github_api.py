@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 
 import logging
+import os
 
 from console.exception.main import ServiceHandleException
 from console.exception.bcode import ErrUnAuthnOauthService, ErrExpiredAuthnOauthService
@@ -13,6 +14,9 @@ from urllib3.exceptions import MaxRetryError, ReadTimeoutError, SSLError
 
 logger = logging.getLogger("default")
 
+# 代理配置：只对 GitHub 相关请求生效
+github_proxy = os.environ.get("GITHUB_PROXY")
+proxies = {"http": github_proxy, "https": github_proxy} if github_proxy else None
 
 class GithubApiV3MiXin(object):
     def set_api(self, access_token):
@@ -24,7 +28,7 @@ class GithubApiV3(GithubApiV3MiXin, GitOAuth2Interface):
         super(GithubApiV3, self).set_session()
         self.events = ["push"]
         self.request_params = {
-            "scope": "user repo admin:repo_hook",
+            "scope": "user user:email repo admin:repo_hook",
         }
 
     def get_auth_url(self, home_url=None):
@@ -54,7 +58,7 @@ class GithubApiV3(GithubApiV3MiXin, GitOAuth2Interface):
             }
             url = self.get_access_token_url(self.oauth_service.home_url)
             try:
-                rst = self._session.request(method='POST', url=url, headers=headers, params=params)
+                rst = self._session.request(method='POST', url=url, headers=headers, params=params, proxies=proxies)
             except Exception:
                 raise NoAccessKeyErr("can not get access key")
             if rst.status_code == 200:
@@ -97,7 +101,49 @@ class GithubApiV3(GithubApiV3MiXin, GitOAuth2Interface):
         access_token, refresh_token = self._get_access_token(code=code)
         if self.api:
             user = self.api.get_user()
-            return OAuth2User(user.login, user.id, user.email), access_token, refresh_token
+            # 强制获取用户信息，确保所有字段都被加载
+            try:
+                # 访问这些属性会触发API调用，获取完整的用户信息
+                user_login = user.login
+                user_id = user.id
+                user_email = user.email
+                
+                # 如果email为空，尝试获取用户的所有邮箱地址
+                if not user_email:
+                    try:
+                        # 获取用户的邮箱列表
+                        emails = list(user.get_emails())
+                        logger.info(f"获取到邮箱列表: {emails}")
+                        # 查找主邮箱或已验证的邮箱
+                        for email_info in emails:
+                            # email_info 是字典，不是对象
+                            if isinstance(email_info, dict):
+                                if email_info.get('primary') or email_info.get('verified'):
+                                    user_email = email_info.get('email')
+                                    break
+                            else:
+                                # 如果是对象格式
+                                if hasattr(email_info, 'primary') and (email_info.primary or email_info.verified):
+                                    user_email = email_info.email
+                                    break
+                        # 如果没有主邮箱，使用第一个邮箱
+                        if not user_email and emails:
+                            first_email = emails[0]
+                            if isinstance(first_email, dict):
+                                user_email = first_email.get('email')
+                            else:
+                                user_email = first_email.email
+                    except Exception as e:
+                        logger.warning(f"Failed to get user emails: {e}")
+                        user_email = None
+                
+                logger.info(f"获取到用户信息: login={user_login}, id={user_id}, email={user_email}")
+                return OAuth2User(user_login, user_id, user_email), access_token, refresh_token
+                
+            except Exception as e:
+                logger.error(f"获取用户信息失败: {e}")
+                raise ServiceHandleException(msg=f"获取用户信息失败: {str(e)}", msg_show="无法获取完整的用户信息")
+                
         raise ServiceHandleException(msg="can not get user info, api not set", msg_show="无法获取用户信息")
 
     def get_authorize_url(self):

@@ -681,6 +681,7 @@ export function rootReducer(state = initialState, action) {
         state = state.setIn(['nodes', node.id], fromJS(n));
       });
 
+
       // apply pinned searches, filters nodes that dont match
       state = applyPinnedSearches(state);
 

@@ -16,7 +16,8 @@ from openapi.views.enterprise_view import ResourceOverview
 from openapi.views.gateway.gateway import ListEnterpriseAppGatewayHTTPRuleView
 from openapi.views.region_view import ListRegionInfo, RegionInfo, ReplaceRegionIP
 from openapi.views.team_view import (ListRegionsView, ListTeamInfo, TeamAppsResourceView, TeamCertificatesLCView,
-                                     TeamCertificatesRUDView, TeamEventLogView, TeamInfo, TeamOverviewView, TeamsResourceView)
+                                     TeamCertificatesRUDView, TeamEventLogView, TeamInfo, TeamOverviewView,
+                                     TeamsResourceView, EntAppModelView)
 from openapi.views.user_view import (ChangePassword, ChangeUserPassword, ListUsersView, UserInfoView, CurrentUsersView,
                                      UserTenantClose, UserTenantDelete)
 
@@ -51,6 +52,7 @@ urlpatterns = [
     url(r'^v1/users/(?P<user_id>[\w\-]+)/delete$', UserTenantDelete.as_view()),
     url(r'^v1/users/(?P<user_id>[\w\-]+)/changepwd$', ChangeUserPassword.as_view()),
     url(r'^v1/teams$', ListTeamInfo.as_view()),
+    url(r'^v1/app_model$', EntAppModelView.as_view()),
     url(r'^v1/teams/resource$', TeamsResourceView.as_view()),
     url(r'^v1/teams/(?P<team_id>[\w\-]+)$', TeamInfo.as_view()),
     url(r'^v1/teams/(?P<team_id>[\w\-]+)/regions$', ListRegionsView.as_view()),
@@ -92,6 +94,9 @@ urlpatterns = [
     # 资源监控
     url(r'^v1/monitor/resource_over_view$', ResourceOverview.as_view()),
 
+    # MCP 相关接口
+    url(r'^v1/mcp/', include('openapi.mcp.urls')),
 ]
+
 if os.environ.get("OPENAPI_V2") == "true":
     urlpatterns += [url(r'^v2', include('openapi.v2.urls'))]

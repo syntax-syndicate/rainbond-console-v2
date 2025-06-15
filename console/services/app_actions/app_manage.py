@@ -215,7 +215,7 @@ class AppManageService(AppManageBase):
         if kind == "build_from_source_code" or kind == "source":
             if service.oauth_service_id:
                 try:
-                    oauth_service = oauth_repo.get_oauth_services_by_service_id(user.user_id, service_id=service.oauth_service_id)
+                    oauth_service = oauth_repo.get_oauth_services_by_service_id(service_id=service.oauth_service_id)
                     oauth_user = oauth_user_repo.get_user_oauth_by_user_id(
                         service_id=service.oauth_service_id, user_id=user.user_id)
                 except Exception as e:
@@ -627,7 +627,7 @@ class AppManageService(AppManageBase):
                 source_code["cmd"] = service.cmd
                 if service.oauth_service_id:
                     try:
-                        oauth_service = oauth_repo.get_oauth_services_by_service_id(user.user_id, service_id=service.oauth_service_id)
+                        oauth_service = oauth_repo.get_oauth_services_by_service_id(service_id=service.oauth_service_id)
                         oauth_user = oauth_user_repo.get_user_oauth_by_user_id(
                             service_id=service.oauth_service_id, user_id=user.user_id)
                     except Exception as e:
@@ -1263,6 +1263,18 @@ class AppManageService(AppManageBase):
         self.__create_service_delete_event(tenant, service, user)
         service.delete()
         return ignore_delete_from_cluster
+
+    def get_extend_method_name(self, extend_method):
+        if extend_method == "state_singleton":
+            return "有状态单实例"
+        elif extend_method == "state_multiple":
+            return "有状态多实例"
+        elif extend_method == "stateless_singleton":
+            return "无状态单实例"
+        elif extend_method == "stateless_multiple":
+            return "无状态多实例"
+        else:
+            return None
 
     def change_service_type(self, tenant, service, extend_method, user_name=''):
         # 存储限制

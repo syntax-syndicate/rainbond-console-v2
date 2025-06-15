@@ -27,7 +27,7 @@ from console.repositories.app_config_group import app_config_group_item_repo
 from console.repositories.app_config_group import app_config_group_service_repo
 from console.repositories.k8s_resources import k8s_resources_repo
 # exception
-from console.exception.main import ServiceHandleException
+from console.exception.main import ServiceHandleException, ErrTenantLackOfMemory
 from console.exception.bcode import ErrAppUpgradeDeployFailed
 # model
 from console.models.main import AppUpgradeRecord, K8sResource
@@ -270,6 +270,9 @@ class AppUpgrade(MarketApp):
             helm_chart_parameter["app_name"] = self.app_template["group_name"]
             helm_chart_parameter["app_version"] = self.app_template["group_version"]
             _ = self.predeploy(helm_chart_parameter)
+        except ErrTenantLackOfMemory as e:
+            logger.exception(e)
+            raise ErrTenantLackOfMemory()
         except Exception as e:
             logger.exception(e)
             raise ServiceHandleException(msg="install app failure", msg_show="安装应用发生异常{}".format(e))
@@ -277,6 +280,9 @@ class AppUpgrade(MarketApp):
     def _install_deploy(self):
         try:
             _ = self.deploy()
+        except ErrTenantLackOfMemory as e:
+            logger.exception(e)
+            raise ErrTenantLackOfMemory()
         except Exception as e:
             logger.exception(e)
             raise ServiceHandleException(msg="install app failure", msg_show="安装应用发生异常{}".format(e))
@@ -696,7 +702,7 @@ class AppUpgrade(MarketApp):
                     build_version=plugin.build_version.build_version,
                     service_meta_type=plugin_dep.get("service_meta_type"),
                     plugin_status=plugin_dep.get("plugin_status"),
-                    min_memory=max(plugin_dep.get("min_memory", 0) or 128, 128),
+                    min_memory=max(plugin_dep.get("min_memory", 0) or 512, 512),
                     min_cpu=max(plugin_dep.get("min_cpu", 0) or 250, 250),
                 ))
         return new_plugin_deps, new_plugin_configs
@@ -817,7 +823,7 @@ class AppUpgrade(MarketApp):
                 image_tag = image_and_tag[1]
             else:
                 image_tag = "latest"
-        min_memory = max(plugin_tmpl.get('min_memory', 0) or 128, 128)
+        min_memory = max(plugin_tmpl.get('min_memory', 0) or 512, 512)
         min_cpu = max(int(min_memory) / 128 * 20, 250)
 
         return PluginBuildVersion(

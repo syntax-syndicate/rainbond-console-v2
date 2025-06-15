@@ -258,6 +258,13 @@ class TenantServicePortRepository(object):
 
 
 class TenantServiceVolumnRepository(object):
+    def get_service_volume_by_id(self, id):
+        volumes = TenantServiceVolume.objects.get(ID=id)
+        if volumes:
+            return volumes
+        return None
+
+
     def list_custom_volumes(self, service_ids):
         return TenantServiceVolume.objects.filter(service_id__in=service_ids).exclude(
             volume_type__in=["config-file", TenantServiceVolume.SHARE, TenantServiceVolume.LOCAL, TenantServiceVolume.TMPFS])
@@ -502,6 +509,9 @@ class TenantServiceMntRelationRepository(object):
             dep_mnts.append(mnt)
         return dep_mnts
 
+    def get_mnt_relation_by_id(self, service_id, dep_service_id, mnt_name):
+        return TenantServiceMountRelation.objects.get(service_id=service_id, dep_service_id=dep_service_id, mnt_name=mnt_name)
+
     def list_mnt_relations_by_service_ids(self, tenant_id, service_ids):
         return TenantServiceMountRelation.objects.filter(tenant_id=tenant_id, service_id__in=service_ids)
 
@@ -635,15 +645,19 @@ class ServiceDomainRepository(object):
     def get_tenant_certificate(self, tenant_id):
         return ServiceDomainCertificate.objects.filter(tenant_id=tenant_id)
 
-    def get_tenant_certificate_page(self, tenant_id, start, end):
+    def get_tenant_certificate_page(self, tenant_id, start, end, search_key=None):
         """提供指定位置和数量的数据"""
-        cert = ServiceDomainCertificate.objects.filter(tenant_id=tenant_id)
+        if search_key:
+            # 如果有搜索关键字，按证书别名进行模糊搜索
+            cert = ServiceDomainCertificate.objects.filter(
+                tenant_id=tenant_id,
+                alias__icontains=search_key
+            )
+        else:
+            cert = ServiceDomainCertificate.objects.filter(tenant_id=tenant_id)
+        
         nums = cert.count()  # 证书数量
-        # if end > nums - 1:
-        #     end =nums - 1
-        # if start <= nums - 1:
-
-        part_cert = ServiceDomainCertificate.objects.filter(tenant_id=tenant_id)[start:end + 1]
+        part_cert = cert[start:end + 1]
         return part_cert, nums
 
     def get_certificate_by_alias(self, tenant_id, alias):
